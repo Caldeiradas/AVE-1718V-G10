@@ -50,8 +50,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AbstractCategoryDataMapperTest.cs" />
+    <Compile Include="AbstractCustomerDataMapperTest.cs" />
     <Compile Include="AbstractProductDataMapperTest.cs" />
     <Compile Include="CategoryDataMapperReflectTest.cs" />
+    <Compile Include="CustomerDataMapperTest.cs" />
     <Compile Include="DataMappers\CustomerDataMapper.cs" />
     <Compile Include="DataMappers\SupplierDataMapper.cs" />
     <Compile Include="DataMappers\CategoryDataMapper.cs" />
