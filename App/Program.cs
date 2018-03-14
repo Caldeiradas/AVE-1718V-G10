@@ -23,7 +23,7 @@ namespace App
                 con.Open();
                 SqlDataReader dr = cmd.ExecuteReader();
                 while (dr.Read())
-                    Console.WriteLine(dr["ProductName"]);
+                    Console.WriteLine(dr["ProductName"] + " " +dr["ProductID"]);
             }
             finally
             {
