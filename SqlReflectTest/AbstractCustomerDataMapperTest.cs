@@ -37,8 +37,7 @@ namespace SqlReflectTest
         public void TestCustomerGetById() //TODO
         {
             Customer c = (Customer)customers.GetById(3);
-            Assert.AreEqual("John", c.CustomerName);
-            Assert.AreEqual("john@testcustomergetbyid.com", c.Email);
+            Assert.AreEqual("John", c.CompanyName);
         }
 
         public void TestCustomerInsertAndDelete()  //TODO
@@ -48,24 +47,21 @@ namespace SqlReflectTest
             // 
             Customer c = new Customer()
             {
-                CustomerName = "Jack",
-                Email = "jack@testcustomerinsertanddelete.com"
+                CompanyName = "Jack",
             };
             object id = customers.Insert(c);
             //
             // Get the new Customer object from database
             //
             Customer actual = (Customer)customers.GetById(id);
-            Assert.AreEqual(c.CustomerName, actual.CustomerName);
-            Assert.AreEqual(c.Email, actual.Email);
+            Assert.AreEqual(c.CompanyName, actual.CompanyName);
             //
             // Delete the created Customer from database
             //
             customers.Delete(actual);
             object res = customers.GetById(id);
             actual = res != null ? (Customer)res : default(Customer);
-            Assert.IsNull(actual.CustomerName);
-            Assert.IsNull(actual.Email);
+            Assert.IsNull(actual.CompanyName);
         }
 
         public void TestCustomerUpdate()
@@ -74,23 +70,20 @@ namespace SqlReflectTest
             Customer modified = new Customer()
             {
                 CustomerID = original.CustomerID,
-                CustomerName = "Maria",
-                Email = "maria@modifiedtestcustomerupdate.com"
+                CompanyName = "Maria",
             };
 
             //update to modified
             customers.Update(modified);
             Customer actual = (Customer)customers.GetById(3);
             //check current = modified
-            Assert.AreEqual(modified.CustomerName, actual.CustomerName);
-            Assert.AreEqual(modified.Email, actual.Email);
+            Assert.AreEqual(modified.CompanyName, actual.CompanyName);
 
             //update to original
             customers.Update(original);
             actual = (Customer)customers.GetById(3);
             //check current = original
-            Assert.AreEqual("Maria", actual.CustomerName);
-            Assert.AreEqual("maria@originaltestcustomerupdate.com", actual.Email);
+            Assert.AreEqual("Maria", actual.CompanyName);
         }
     }
 }

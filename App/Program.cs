@@ -7,6 +7,7 @@ namespace App
     {
         static void Main(string[] args)
         {
+            
             //ReflectDataMapper ref = new ReflectDataMapper(new Category(), );
             /*
             string connStr = @"

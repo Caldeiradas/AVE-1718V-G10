@@ -46,7 +46,6 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Attributes\PK.cs" />
     <Compile Include="Attributes\TableAttribute.cs" />
-    <Compile Include="Tester.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

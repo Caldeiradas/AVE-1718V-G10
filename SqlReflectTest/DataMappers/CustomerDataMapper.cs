@@ -1,4 +1,5 @@
-﻿using SqlReflect;
+﻿
+using SqlReflect;
 using SqlReflectTest.Model;
 using System;
 using System.Data.SqlClient;
@@ -7,12 +8,13 @@ namespace SqlReflectTest.DataMappers
 {
     class CustomerDataMapper : AbstractDataMapper
     {
-        const string COLUMNS = "CustomerName, Email";
+        //TODO unfinished
+        const string COLUMNS = "CompanyName, ContactName, ContactTitle, Address, City, Region, PostalCode, Country, Phone, Fax";
         const string SQL_GET_ALL = @"SELECT CustomerID, " + COLUMNS + " FROM Customers";
         const string SQL_GET_BY_ID = SQL_GET_ALL + " WHERE CustomerID=";
         const string SQL_INSERT = "INSERT INTO Customers (" + COLUMNS + ") OUTPUT INSERTED.CustomerID VALUES ";
         const string SQL_DELETE = "DELETE FROM Customers WHERE CustomerID = ";
-        const string SQL_UPDATE = "UPDATE Customers SET CustomerName={1}, Email={2} WHERE CustomerID = {0}";
+        const string SQL_UPDATE = "UPDATE Customers SET CompanyName = {1}, ContactName = {2}, ContactTitle = {3}, Address, City, Region, PostalCode, Country, Phone, Fax WHERE CustomerID = {0}";
 
         public CustomerDataMapper(string connStr) : base(connStr)
         {
@@ -32,8 +34,8 @@ namespace SqlReflectTest.DataMappers
             Customer c = new Customer
             {
                 CustomerID = (int)dr["CustomerID"],
-                CustomerName = (string)dr["CustomerName"],
-                Email = (string)dr["Email"]
+                CompanyName = (string)dr["CustomerName"],
+
             };
             return c;
         }
@@ -41,7 +43,7 @@ namespace SqlReflectTest.DataMappers
         protected override string SqlInsert(object target)
         {
             Customer c = (Customer)target;
-            string values = "'" + c.CustomerName + "' , '" + c.Email + "'";
+            string values = "'" + c.CompanyName;
             return SQL_INSERT + "(" + values + ")";
         }
 
@@ -50,8 +52,8 @@ namespace SqlReflectTest.DataMappers
             Customer c = (Customer)target;
             return String.Format(SQL_UPDATE,
                 c.CustomerID,
-                "'" + c.CustomerName + "'",
-                "'" + c.Email + "'");
+                "'" + c.CompanyName + "'",
+                "'" + c.Fax + "'");
         }
 
         protected override string SqlDelete(object target)
