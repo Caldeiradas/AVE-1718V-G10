@@ -13,51 +13,67 @@ namespace SqlReflect
 
         string TABLE_NAME;
         string PRIMARY_KEY_NAME;
-        string COLUMNS;
+        string COLUMNS_FLAT;
+        string[] COLUMNS;
         string SQL_GET_ALL;// =    @"SELECT {0} FROM {1}"; //{0} = PRIMARY_KEY + COLUMNS //{1] = TABLE_NAME
         string SQL_GET_BY_ID;// =  "{0} WHERE {1}=";//{0} = SQL_GET_ALL //{1} = PRIMARY_KEY
         string SQL_INSERT;// =     "INSERT INTO {0} ({1}) OUTPUT INSERTED.{2} VALUES ";//{0} = TABLE_NAME //{1} = COLUMNS //{2} = PRIMARY_KEY
         string SQL_DELETE;// =     "DELETE FROM {0} WHERE {1} = ";//{0} = TABLE_NAME //{1} = PRIMARY_KEY
         string SQL_UPDATE;// =     "UPDATE {0} SET CategoryName={1}, Description={2} WHERE CategoryID = {0}";
 
+        Type DomainObject;
 
-        int PRIMARY_KEY_VALUE;
-        Type TypeOfObject;
+        //Approach number 2:
+        //Keep array of Properties
+        //And an extra reference for the property that represents PRIMARY_KEY
+        //iterate through properties to create the strings
+        //iterate through properties in SqlInsert() to get respective values with .GetValue(target);
+        PropertyInfo[] attributesOfDomainObject;
+        PropertyInfo primaryKeyAttribute;
+
         public ReflectDataMapper(Type klass, string connStr) : base(connStr)
         {
-            //klass is a representation of an entity
-            //has a PK and attributes
-            TypeOfObject = klass;
-            COLUMNS = "";
+            //most of the work will be done here
+            //construction of the strings is done here
+            //should it be done here or should it be done in the respective methods with an IF check to see if the string has been generated before?
+            
+            DomainObject = klass;
             
             //Get the TableAttribute
             TableAttribute tb = (TableAttribute) klass.GetCustomAttribute(typeof(TableAttribute), false);
             TABLE_NAME = tb.Name;
             
-
-            SQL_UPDATE = "UPDATE " + TABLE_NAME + " SET "; //foreach (Attribute) SQL_UPDATE += attribute.name + "={i}"
+            SQL_UPDATE = "UPDATE " + TABLE_NAME + " SET ";
 
             //Get all the properties of this type and construct the COLUMN attributes
             PropertyInfo[] properties = klass.GetProperties();
+            attributesOfDomainObject = properties;
+
+            //array of COLUMN_NAMES
+            COLUMNS = new string[properties.Length];
+            //concatenation of COLUMN_NAMES
+            COLUMNS_FLAT = "";
+
+            //replace with fori
             int i = 1;
             foreach(PropertyInfo property in properties)
             {
                 if (property.IsDefined(typeof(PKAttribute), false)){
                     PRIMARY_KEY_NAME = property.Name;
-                    //TODO PRIMARY_KEY might not be an integer
-                    //object o = property.GetGetMethod().Invoke(klass, new object[] { });
-                    //PRIMARY_KEY = property.GetValue(klass);
+                    primaryKeyAttribute = property;
                 }
                 else
                 {
+                    COLUMNS[i - 1] = property.Name;
                     //form COLUMN names
-                    COLUMNS += property.Name+",";
+                    COLUMNS_FLAT += property.Name+",";
 
-                    //TODO the last one will have an extra ','
+                    
                     SQL_UPDATE += property.Name + "={" + i + "},";
                     ++i;
+                    //TODO the last one will have an extra ','
                 }
-                
+
 
             }
 
@@ -65,16 +81,17 @@ namespace SqlReflect
 
             if (SQL_UPDATE[SQL_UPDATE.Length -1] == ',')
             {
-                COLUMNS = COLUMNS.Remove(COLUMNS.Length - 1);
-                SQL_UPDATE = SQL_UPDATE.Remove(SQL_UPDATE.Length - 1); //remove last unecessary ','
+                //remove last unnecessary comma ','
+                COLUMNS_FLAT = COLUMNS_FLAT.Remove(COLUMNS_FLAT.Length - 1);
+                SQL_UPDATE = SQL_UPDATE.Remove(SQL_UPDATE.Length - 1); 
             }
             SQL_UPDATE += " WHERE " + PRIMARY_KEY_NAME + "={0}";
             //SQL_UPDATE is now in the form >UPDATE TABLE_NAME SET Column_1 ={1},..,Column_n ={n} WHERE PRIMARY_KEY = {0}<
 
 
-            SQL_GET_ALL = "SELECT " + PRIMARY_KEY_NAME + ", " + COLUMNS + " FROM " + TABLE_NAME;
+            SQL_GET_ALL = "SELECT " + PRIMARY_KEY_NAME + ", " + COLUMNS_FLAT + " FROM " + TABLE_NAME;
             SQL_GET_BY_ID = SQL_GET_ALL + " WHERE " + PRIMARY_KEY_NAME + " = ";
-            SQL_INSERT = "INSERT INTO " + TABLE_NAME + "(" + COLUMNS + ")" + " OUTPUT INSERTED." + PRIMARY_KEY_NAME + " VALUES ";
+            SQL_INSERT = "INSERT INTO " + TABLE_NAME + "(" + COLUMNS_FLAT + ")" + " OUTPUT INSERTED." + PRIMARY_KEY_NAME + " VALUES ";
             SQL_DELETE = "DELETE FROM " + TABLE_NAME + " WHERE " + PRIMARY_KEY_NAME + " = ";
 
 
@@ -82,32 +99,72 @@ namespace SqlReflect
 
         protected override object Load(SqlDataReader dr)
         {
-            return null;
+
+            //object array that will contain the parameters that the constructor will receive
+            //e.g if the object is a Category, parameters will be = {dr["CategoryID"], dr["CategoryName"], dr["Description"]}
+            
+            /*
+            object[] parameters = new object[COLUMNS.Length+1];
+            
+            parameters[0] = dr[PRIMARY_KEY_NAME];
+            for(int i = 1; i < parameters.Length; ++i)
+            {
+                parameters[i] = dr[COLUMNS[i-1]];
+            }
+            return Activator.CreateInstance(DomainObject, parameters);
+            */
+
+            //first parameter might not be the PRIMARY_KEY
+            object[] parameters = new object[attributesOfDomainObject.Length];
+            for(int i = 0; i < parameters.Length; ++i)
+            {
+
+                //string nameOfAttribute = attributesOfDomainObject[i].Name;
+                parameters[i] = dr[attributesOfDomainObject[i].Name];
+            }
+            return Activator.CreateInstance(DomainObject, parameters);
         }
 
         protected override string SqlGetAll()
         {
-            throw new NotImplementedException();
+            return SQL_GET_ALL;
         }
 
         protected override string SqlGetById(object id)
         {
-            throw new NotImplementedException();
+            return SQL_GET_BY_ID + id;
         }
 
         protected override string SqlInsert(object target)
         {
-            throw new NotImplementedException();
+            string values = "";
+            //iterate through target's Properties
+            for(int i = 0; i < attributesOfDomainObject.Length; ++i)
+            {
+                values += "'" + attributesOfDomainObject[i].GetValue(target) +"' ,";
+            }
+            if (values[values.Length - 1] == ',')
+                //remove last unnecessary comma ','
+                values = values.Remove(values.Length - 1);
+            return SQL_INSERT + "(" + values + ")";
         }
 
         protected override string SqlDelete(object target)
         {
-            throw new NotImplementedException();
+            return 
+                SQL_DELETE + 
+                //ID of target
+                primaryKeyAttribute.GetValue(target);
         }
 
         protected override string SqlUpdate(object target)
         {
-            throw new NotImplementedException();
+            string[] valuesToFormatStringWith = new string[attributesOfDomainObject.Length];
+            for(int i = 0; i < valuesToFormatStringWith.Length; ++i)
+            {
+                valuesToFormatStringWith[i] = ""+attributesOfDomainObject[i].GetValue(target);
+            }
+            return String.Format(SQL_UPDATE, valuesToFormatStringWith);
         }
     }
 }
