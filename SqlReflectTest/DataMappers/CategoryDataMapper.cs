@@ -29,10 +29,12 @@ namespace SqlReflectTest.DataMappers
 
         protected override object Load(SqlDataReader dr)
         {
-            Category c = new Category();
-            c.CategoryID = (int)dr["CategoryID"];
-            c.CategoryName = (string)dr["CategoryName"];
-            c.Description = (string)dr["Description"];
+            Category c = new Category
+            {
+                CategoryID = (int)dr["CategoryID"],
+                CategoryName = (string)dr["CategoryName"],
+                Description = (string)dr["Description"]
+            };
             return c;
         }
 

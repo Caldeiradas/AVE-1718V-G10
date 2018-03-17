@@ -31,7 +31,7 @@ namespace SqlReflectTest
                 Console.WriteLine(p);
                 count++;
             }
-            Assert.AreEqual(8, count);
+            Assert.AreEqual(9, count);
         }
         public void TestCategoryGetById()
         {

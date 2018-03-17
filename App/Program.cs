@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Data;
 using System.Data.SqlClient;
+
 namespace App
 {
     class Program
@@ -9,7 +10,7 @@ namespace App
         {
             
             //ReflectDataMapper ref = new ReflectDataMapper(new Category(), );
-            /*
+            
             string connStr = @"
                     Server=(LocalDB)\MSSQLLocalDB;
                     Integrated Security=true;
@@ -32,7 +33,7 @@ namespace App
                 if (con.State != ConnectionState.Closed)
                     con.Close();
             }
-            */
+            
             
         }
         

@@ -50,26 +50,22 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AbstractCategoryDataMapperTest.cs" />
-    <Compile Include="AbstractCustomerDataMapperTest.cs" />
     <Compile Include="AbstractProductDataMapperTest.cs" />
-    <Compile Include="AbstractRegionDataMapperTest.cs" />
+    <Compile Include="AbstractShipperDataMapperTest.cs" />
     <Compile Include="CategoryDataMapperReflectTest.cs" />
-    <Compile Include="CustomerDataMapperTest.cs" />
-    <Compile Include="DataMappers\CustomerDataMapper.cs" />
-    <Compile Include="DataMappers\RegionDataMapper.cs" />
     <Compile Include="DataMappers\SupplierDataMapper.cs" />
     <Compile Include="DataMappers\CategoryDataMapper.cs" />
     <Compile Include="DataMappers\ProductDataMapper.cs" />
     <Compile Include="CategoryDataMapperTest.cs" />
-    <Compile Include="Model\Customer.cs" />
-    <Compile Include="Model\Region.cs" />
+    <Compile Include="Model\Shipper.cs" />
     <Compile Include="ProductDataMapperReflectTest.cs" />
     <Compile Include="ProductDataMapperTest.cs" />
     <Compile Include="Model\Category.cs" />
     <Compile Include="Model\Product.cs" />
     <Compile Include="Model\Supplier.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="RegionDataMapperTest.cs" />
+    <Compile Include="DataMappers\ShipperDataMapper.cs" />
+    <Compile Include="ShipperDataMapperTest.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

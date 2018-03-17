@@ -10,7 +10,7 @@ namespace SqlReflectTest.DataMappers
         const string COLUMNS = "RegionDescription";
         const string SQL_GET_ALL = @"SELECT RegionID, " + COLUMNS + " FROM Region";
         const string SQL_GET_BY_ID = SQL_GET_ALL + " WHERE RegionID=";
-        const string SQL_INSERT = "INSERT INTO Region (" + COLUMNS + ") OUTPUT INSERTED.RegionID VALUES ";
+        const string SQL_INSERT = "INSERT INTO Region (" + COLUMNS + ") OUTPUT INSERTED.RegionId VALUES ";
         const string SQL_DELETE = "DELETE FROM Region WHERE RegionID = ";
         const string SQL_UPDATE = "UPDATE Region SET RegionDescription={1} WHERE RegionID = {0}";
 
@@ -40,8 +40,8 @@ namespace SqlReflectTest.DataMappers
         protected override string SqlInsert(object target)
         {
             Region c = (Region)target;
-            string values = "('"+c.RegionDescription + "')";
-            return SQL_INSERT +  values ;
+            string values = "'"+c.RegionDescription+"'";
+            return SQL_INSERT + "("+ values +")";
         }
 
         protected override string SqlUpdate(object target)

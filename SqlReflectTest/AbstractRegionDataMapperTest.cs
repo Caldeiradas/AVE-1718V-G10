@@ -37,7 +37,8 @@ namespace SqlReflectTest
         public void TestRegionGetById()
         {
             Region c = (Region)regions.GetById(3);
-            Assert.AreEqual("Northern", c.RegionDescription);
+            //Region strings have lots of white spaces that dont show up in the debug menu
+            Assert.AreEqual("Southern                                          ", c.RegionDescription);
 
         }
 
@@ -48,7 +49,7 @@ namespace SqlReflectTest
             // 
             Region c = new Region()
             {
-                RegionID = 5,
+                RegionID = 42,
                 RegionDescription = "Northern"
             };
             object id = regions.Insert(c);
