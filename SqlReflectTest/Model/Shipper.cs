@@ -2,7 +2,7 @@
 
 namespace SqlReflectTest.Model
 {
-    [Table("Shipper")]
+    [Table("Shippers")]
     public struct Shipper
     {
         [PK]

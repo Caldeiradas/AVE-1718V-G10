@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.Serialization;
+
 namespace SqlReflect
 {
     
@@ -100,9 +102,7 @@ namespace SqlReflect
         protected override object Load(SqlDataReader dr)
         {
 
-            //object array that will contain the parameters that the constructor will receive
-            //e.g if the object is a Category, parameters will be = {dr["CategoryID"], dr["CategoryName"], dr["Description"]}
-            
+
             /*
             object[] parameters = new object[COLUMNS.Length+1];
             
@@ -112,17 +112,25 @@ namespace SqlReflect
                 parameters[i] = dr[COLUMNS[i-1]];
             }
             return Activator.CreateInstance(DomainObject, parameters);
-            */
 
             //first parameter might not be the PRIMARY_KEY
-            object[] parameters = new object[attributesOfDomainObject.Length];
-            for(int i = 0; i < parameters.Length; ++i)
-            {
+            */
 
-                //string nameOfAttribute = attributesOfDomainObject[i].Name;
+            //object array that will contain the parameters that the constructor will receive
+            //e.g if the object is a Category, parameters will be = {dr["CategoryID"], dr["CategoryName"], dr["Description"]}
+            object[] parameters = new object[attributesOfDomainObject.Length];
+
+            for(int i = 0; i < parameters.Length; ++i)
                 parameters[i] = dr[attributesOfDomainObject[i].Name];
+
+            //Type dObject = (Type)FormatterServices.GetUninitializedObject(DomainObject); //does not call ctor
+            Object dObject = Activator.CreateInstance(DomainObject);
+            for (int i = 0; i < attributesOfDomainObject.Length; ++i)
+            {
+                DomainObject.GetProperty(attributesOfDomainObject[i].Name).SetValue(dObject, parameters[i]);
             }
-            return Activator.CreateInstance(DomainObject, parameters);
+            return dObject;
+            //return Activator.CreateInstance(DomainObject, parameters);
         }
 
         protected override string SqlGetAll()
@@ -141,7 +149,11 @@ namespace SqlReflect
             //iterate through target's Properties
             for(int i = 0; i < attributesOfDomainObject.Length; ++i)
             {
-                values += "'" + attributesOfDomainObject[i].GetValue(target) +"' ,";
+                PropertyInfo pi = attributesOfDomainObject[i];
+                if (!pi.IsDefined(typeof(PKAttribute), false)){
+                    values += "'" + attributesOfDomainObject[i].GetValue(target) + "' ,";
+                }
+                
             }
             if (values[values.Length - 1] == ',')
                 //remove last unnecessary comma ','
@@ -162,7 +174,7 @@ namespace SqlReflect
             string[] valuesToFormatStringWith = new string[attributesOfDomainObject.Length];
             for(int i = 0; i < valuesToFormatStringWith.Length; ++i)
             {
-                valuesToFormatStringWith[i] = ""+attributesOfDomainObject[i].GetValue(target);
+                valuesToFormatStringWith[i] = "'"+attributesOfDomainObject[i].GetValue(target)+"'";
             }
             return String.Format(SQL_UPDATE, valuesToFormatStringWith);
         }

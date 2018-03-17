@@ -65,6 +65,7 @@
     <Compile Include="Model\Supplier.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="DataMappers\ShipperDataMapper.cs" />
+    <Compile Include="ShipperDataMapperReflectTest.cs" />
     <Compile Include="ShipperDataMapperTest.cs" />
   </ItemGroup>
   <ItemGroup>
