@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using System.Runtime.Serialization;
 
 namespace SqlReflect
@@ -11,170 +12,105 @@ namespace SqlReflect
     
     public class ReflectDataMapper : AbstractDataMapper
     {
-        
-
-        string TABLE_NAME;
-        string PRIMARY_KEY_NAME;
-        string COLUMNS_FLAT;
-        string[] COLUMNS;
-        string SQL_GET_ALL;// =    @"SELECT {0} FROM {1}"; //{0} = PRIMARY_KEY + COLUMNS //{1] = TABLE_NAME
-        string SQL_GET_BY_ID;// =  "{0} WHERE {1}=";//{0} = SQL_GET_ALL //{1} = PRIMARY_KEY
-        string SQL_INSERT;// =     "INSERT INTO {0} ({1}) OUTPUT INSERTED.{2} VALUES ";//{0} = TABLE_NAME //{1} = COLUMNS //{2} = PRIMARY_KEY
-        string SQL_DELETE;// =     "DELETE FROM {0} WHERE {1} = ";//{0} = TABLE_NAME //{1} = PRIMARY_KEY
-        string SQL_UPDATE;// =     "UPDATE {0} SET CategoryName={1}, Description={2} WHERE CategoryID = {0}";
-
-        Type DomainObjectType;
-        List<ReflectDataMapper> rdms = new List<ReflectDataMapper>();
-
-        //Approach number 2:
-        //Keep array of Properties
-        //And an extra reference for the property that represents PRIMARY_KEY
-        //iterate through properties to create the strings
-        //iterate through properties in SqlInsert() to get respective values with .GetValue(target);
-        PropertyInfo[] attributesOfDomainObject;
-        PropertyInfo primaryKeyAttribute;
-
+        //Information to connect to database 
         protected static string ConnStr;
 
+        //SQL querie strings
+        readonly string SQL_GET_ALL;//E.g =    @"SELECT {0} FROM {1}"; //{0} = PRIMARY_KEY + COLUMNS //{1] = TABLE_NAME
+        readonly string SQL_GET_BY_ID;//E.g  =  "{0} WHERE {1}=";//{0} = SQL_GET_ALL //{1} = PRIMARY_KEY
+        readonly string SQL_INSERT;//E.g  =     "INSERT INTO {0} ({1}) OUTPUT INSERTED.{2} VALUES ";//{0} = TABLE_NAME //{1} = COLUMNS //{2} = PRIMARY_KEY
+        readonly string SQL_DELETE;//E.g  =     "DELETE FROM {0} WHERE {1} = ";//{0} = TABLE_NAME //{1} = PRIMARY_KEY
+        readonly string SQL_UPDATE;//E.g  =     "UPDATE {0} SET CategoryName={1}, Description={2} WHERE CategoryID = {0}";
+
+        //Reflection information
+        Type DomainObjectType;
+        PropertyInfo[] DomainObjectProperties;
+        PropertyInfo PK_ProprietyInfo;
+        List<ReflectDataMapper> DataMappers = new List<ReflectDataMapper>();
+        
 
         public ReflectDataMapper(Type klass, string connStr) : base(connStr)
         {
-            //most of the work will be done here
-            //construction of the strings is done here
-            //should it be done here or should it be done in the respective methods with an IF check to see if the string has been generated before?
-            
             DomainObjectType = klass;
             ConnStr = connStr;
+            DomainObjectProperties = klass.GetProperties();
             
-            //Get the TableAttribute
-            TableAttribute tb = (TableAttribute) klass.GetCustomAttribute(typeof(TableAttribute), false);
-            TABLE_NAME = tb.Name;
-            
-            SQL_UPDATE = "UPDATE " + TABLE_NAME + " SET ";
+            //Get TableAtribute from the custom atributes
+            TableAttribute tb = (TableAttribute)klass.GetCustomAttribute(typeof(TableAttribute), false);
+            string tableName = tb.Name;
 
-            //Get all the properties of this type and construct the COLUMN attributes
-            PropertyInfo[] properties = klass.GetProperties();
-            attributesOfDomainObject = properties;
+            StringBuilder columnsSB = new StringBuilder();
+            StringBuilder updateSB = new StringBuilder();
+            String pkName = "";
+            int i = 0;
 
-            //array of COLUMN_NAMES
-            COLUMNS = new string[properties.Length];
-            //concatenation of COLUMN_NAMES
-            COLUMNS_FLAT = "";
-
-            //replace with fori
-            int i = 1;
-            foreach(PropertyInfo property in properties)
+            //Iterate all proprieties to build the string for columns and for the update querie
+            foreach (PropertyInfo property in DomainObjectProperties)
             {
                 Type propType = property.PropertyType;
                 if (property.IsDefined(typeof(PKAttribute), false))
                 {
-                    PRIMARY_KEY_NAME = property.Name;
-                    primaryKeyAttribute = property;
+                    PK_ProprietyInfo = property;
+                    pkName = property.Name;
                 }
                 else if(propType.IsPrimitive || propType.Equals(typeof(string)))
                 {
-                    COLUMNS[i - 1] = property.Name;
-                    //form COLUMN names
-                    COLUMNS_FLAT += property.Name + ",";
-
-
-                    SQL_UPDATE += property.Name + "={" + i + "},";
-                    ++i;
-                    //TODO the last one will have an extra ','
+                    columnsSB.Append(property.Name).Append(",");
+                    updateSB.Append(property.Name).Append("={").Append(++i).Append("},");
                 }
                 else
                 {
-                    //public ReflectDataMapper(Type klass, string connStr)
                     ReflectDataMapper rdm = new ReflectDataMapper(propType, connStr);
-                    rdms.Add(rdm);
-                    COLUMNS[i - 1] = property.Name+"ID";
-                    COLUMNS_FLAT += property.Name+"ID" + ",";
-
-
-                    SQL_UPDATE += property.Name + "={" + i + "},";
-                    ++i;
-                    //TODO the last one will have an extra ','
-
+                    DataMappers.Add(rdm);
+                    string auxPKName = rdm.PK_ProprietyInfo.Name;
+                    columnsSB.Append(auxPKName).Append(",");
+                    updateSB.Append(auxPKName).Append("={").Append(++i).Append("},");
                 }
-
-
             }
 
-            Console.WriteLine("PK = " + PRIMARY_KEY_NAME + "COLUMNS = " + COLUMNS);
-
-            if (SQL_UPDATE[SQL_UPDATE.Length -1] == ',')
+            //remove last unnecessary comma ','
+            if (columnsSB[columnsSB.Length - 1] == ',')
             {
-                //remove last unnecessary comma ','
-                COLUMNS_FLAT = COLUMNS_FLAT.Remove(COLUMNS_FLAT.Length - 1);
-                SQL_UPDATE = SQL_UPDATE.Remove(SQL_UPDATE.Length - 1); 
+                columnsSB.Remove(columnsSB.Length - 1,1);
+                updateSB.Remove(updateSB.Length - 1, 1);
             }
-            SQL_UPDATE += " WHERE " + PRIMARY_KEY_NAME + "={0}";
-            //SQL_UPDATE is now in the form >UPDATE TABLE_NAME SET Column_1 ={1},..,Column_n ={n} WHERE PRIMARY_KEY = {0}<
 
-
-            SQL_GET_ALL = "SELECT " + PRIMARY_KEY_NAME + ", " + COLUMNS_FLAT + " FROM " + TABLE_NAME;
-            SQL_GET_BY_ID = SQL_GET_ALL + " WHERE " + PRIMARY_KEY_NAME + " = ";
-            SQL_INSERT = "INSERT INTO " + TABLE_NAME + "(" + COLUMNS_FLAT + ")" + " OUTPUT INSERTED." + PRIMARY_KEY_NAME + " VALUES ";
-            SQL_DELETE = "DELETE FROM " + TABLE_NAME + " WHERE " + PRIMARY_KEY_NAME + " = ";
-
-
+            //Build all SQL queries Strings
+            SQL_GET_ALL = "SELECT " + pkName + "," + columnsSB.ToString() + " FROM " + tableName;
+            SQL_GET_BY_ID = SQL_GET_ALL + " WHERE " + pkName + " = ";
+            SQL_INSERT = "INSERT INTO " + tableName + "(" + columnsSB.ToString() + ")" + " OUTPUT INSERTED." + pkName + " VALUES ";
+            SQL_DELETE = "DELETE FROM " + tableName + " WHERE " + pkName + " = ";
+            SQL_UPDATE = "UPDATE " + tableName + " SET " + updateSB.ToString() + " WHERE " + pkName + "={0}";
         }
 
         protected override object Load(SqlDataReader dr)
         {
-            //Create an empty instance of the correct Type
             Object domainObject = Activator.CreateInstance(DomainObjectType);
 
             //iterate through the type's parameters
-            for (int i = 0; i < attributesOfDomainObject.Length; ++i)
+            foreach (PropertyInfo property in DomainObjectProperties)
             {
-                //get the type and check if it is primitive or a string
-                Type propertyType = attributesOfDomainObject[i].PropertyType;
-
-                //get the name of the attribute
-                string propName = attributesOfDomainObject[i].Name;
-                if (propertyType.IsPrimitive || propertyType.Equals(typeof(string)))
+                Type propType = property.PropertyType;
+                string propName = property.Name;
+                object value = null;
+                if (propType.IsPrimitive || propType.Equals(typeof(string)))
                 {
-                   
-                    //get the value of the attribute
-                    object value = dr[propName];
-                    if (value is DBNull) value = null;
-                    //set dObject's 'propName' property's value to 'value'
-                    DomainObjectType.GetProperty(propName).SetValue(domainObject, value);
+                    value = dr[propName];
+                    if (value is DBNull)
+                        value = null;
                 }
                 else
                 {
-
-                    //generate the foreign_key name of this attribute
-                    string fkName = "";
-                    PropertyInfo pi = attributesOfDomainObject[i];
-                    if (pi.IsDefined(typeof(FKAttribute), false))
+                    foreach (ReflectDataMapper rdm in DataMappers)
                     {
-                        FKAttribute fk = (FKAttribute)pi.GetCustomAttribute(typeof(FKAttribute), false);
-                        fkName = fk.Name;
+                        if (propType.Equals(rdm.DomainObjectType))
+                        {
+                            value = rdm.GetById(dr[rdm.PK_ProprietyInfo.Name]);
+                            break;
+                        }
                     }
-                    else
-                    {
-                        //throw something
-                        fkName = attributesOfDomainObject[i].Name + "ID";
-                    }
-                    
-                    //get the correct instance by the ID
-                    object foreignID = dr[fkName];
-
-
-                    //create a new ReflectdataMapper for this type
-                    ReflectDataMapper rdm = new ReflectDataMapper(propertyType, ConnStr);
-                    
-                    //get the object corresponding to this ID
-                    object obj =  rdm.GetById(foreignID);
-
-                    object instance = Activator.CreateInstance(propertyType);
-                    DomainObjectType.GetProperty(propName).SetValue(domainObject, obj);
-
-
                 }
-
+                DomainObjectType.GetProperty(propName).SetValue(domainObject, value);
             }
             return domainObject;
         }
@@ -191,44 +127,33 @@ namespace SqlReflect
 
         protected override string SqlInsert(object target)
         {
-            string values = "";
+            StringBuilder valueSB = new StringBuilder();
             //iterate through target's Properties
-            for(int i = 0; i < attributesOfDomainObject.Length; ++i)
+            for(int i = 0; i < DomainObjectProperties.Length; ++i)
             {
-                PropertyInfo pi = attributesOfDomainObject[i];
+                PropertyInfo pi = DomainObjectProperties[i];
                 //if this property is not a primary key then add it to 'values'
                 if (!pi.IsDefined(typeof(PKAttribute), false)){
-
-                    Type t = attributesOfDomainObject[i].PropertyType;
-                    object value = attributesOfDomainObject[i].GetValue(target);
-                    //if (t.IsPrimitive || t.Equals(typeof(string)))
-                        values += "'" + value + "' ,";
-                    //else
-                        //if ToString is overriden this if else is not needed
-                    //    values += "'" + value + "' ,";
-                }
-                
+                    valueSB.Append("'").Append(DomainObjectProperties[i].GetValue(target)).Append("' ,");
+                }  
             }
-            if (values[values.Length - 1] == ',')
-                //remove last unnecessary comma ','
-                values = values.Remove(values.Length - 1);
-            return SQL_INSERT + "(" + values + ")";
+            //remove last unnecessary comma ','
+            if (valueSB[valueSB.Length - 1] == ',')
+                    valueSB.Remove(valueSB.Length - 1, 1);
+            return SQL_INSERT + "(" + valueSB.ToString() + ")";
         }
 
         protected override string SqlDelete(object target)
         {
-            return 
-                SQL_DELETE + 
-                //ID of target
-                primaryKeyAttribute.GetValue(target);
+            return SQL_DELETE + PK_ProprietyInfo.GetValue(target);
         }
 
         protected override string SqlUpdate(object target)
         {
-            string[] valuesToFormatStringWith = new string[attributesOfDomainObject.Length];
+            string[] valuesToFormatStringWith = new string[DomainObjectProperties.Length];
             for(int i = 0; i < valuesToFormatStringWith.Length; ++i)
             {
-                valuesToFormatStringWith[i] = "'"+attributesOfDomainObject[i].GetValue(target)+"'";
+                valuesToFormatStringWith[i] = "'"+ DomainObjectProperties[i].GetValue(target)+"'";
             }
             return String.Format(SQL_UPDATE, valuesToFormatStringWith);
         }
