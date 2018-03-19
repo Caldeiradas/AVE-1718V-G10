@@ -34,6 +34,9 @@ namespace SqlReflect
         PropertyInfo[] attributesOfDomainObject;
         PropertyInfo primaryKeyAttribute;
 
+        protected static string ConnStr;
+
+
         public ReflectDataMapper(Type klass, string connStr) : base(connStr)
         {
             //most of the work will be done here
@@ -41,6 +44,7 @@ namespace SqlReflect
             //should it be done here or should it be done in the respective methods with an IF check to see if the string has been generated before?
             
             DomainObjectType = klass;
+            ConnStr = connStr;
             
             //Get the TableAttribute
             TableAttribute tb = (TableAttribute) klass.GetCustomAttribute(typeof(TableAttribute), false);
@@ -118,52 +122,59 @@ namespace SqlReflect
 
         protected override object Load(SqlDataReader dr)
         {
-            //object array that will contain the parameters that the constructor will receive
-            //e.g if the object is a Category, parameters will be = {dr["CategoryID"], dr["CategoryName"], dr["Description"]}
-            object[] parameters = new object[attributesOfDomainObject.Length];
+            //Create an empty instance of the correct Type
+            Object domainObject = Activator.CreateInstance(DomainObjectType);
 
-            Object dObject = Activator.CreateInstance(DomainObjectType);
-
-
-            for (int i = 0; i < parameters.Length; ++i)
+            //iterate through the type's parameters
+            for (int i = 0; i < attributesOfDomainObject.Length; ++i)
             {
-                Type t = attributesOfDomainObject[i].PropertyType;
-                if(t.IsPrimitive || t.Equals(typeof(string)))
+                //get the type and check if it is primitive or a string
+                Type propertyType = attributesOfDomainObject[i].PropertyType;
+
+                //get the name of the attribute
+                string propName = attributesOfDomainObject[i].Name;
+                if (propertyType.IsPrimitive || propertyType.Equals(typeof(string)))
                 {
-                    parameters[i] = dr[attributesOfDomainObject[i].Name];
+                   
+                    //get the value of the attribute
+                    object value = dr[propName];
+                    if (value is DBNull) value = null;
+                    //set dObject's 'propName' property's value to 'value'
+                    DomainObjectType.GetProperty(propName).SetValue(domainObject, value);
                 }
                 else
                 {
 
-                    //DomainObjectType = instancia do product
-                    //attributesOfDomainObject[i] = references a property of a domain type e.g Category
-                    //we need to get the value of this field
-
-                    //object o = dr[attributesOfDomainObject[i].Name];
-                    //parameters[i] = attributesOfDomainObject[i].GetValue(DomainObjectType);
-                    
-                    //parameters[i] needs to be an instance of the referenced entity
-                    foreach(ReflectDataMapper rdm in rdms){
-                        if (rdm.DomainObjectType.Equals(t))
-                        {
-                            int ab = (int)dr[attributesOfDomainObject[i].Name + "ID"];
-                            Object a = rdm.GetById(ab);
-                            parameters[i] = a;
-                        }
-
+                    //generate the foreign_key name of this attribute
+                    string fkName = "";
+                    if (propertyType.IsDefined(typeof(FKAttribute), false))
+                    {
+                        FKAttribute fk = (FKAttribute)propertyType.GetCustomAttribute(typeof(FKAttribute), false);
+                        fkName = fk.Name;
+                    }
+                    else
+                    {
+                        //throw something
                     }
                     
+                    //get the correct instance by the ID
+                    object foreignID = dr[fkName];
+
+
+                    //create a new ReflectdataMapper for this type
+                    ReflectDataMapper rdm = new ReflectDataMapper(propertyType, ConnStr);
                     
+                    //get the object corresponding to this ID
+                    object obj =  rdm.GetById(foreignID);
+
+                    object instance = Activator.CreateInstance(propertyType);
+                    DomainObjectType.GetProperty(propName).SetValue(domainObject, obj);
+
 
                 }
 
             }
-
-            for (int i = 0; i < attributesOfDomainObject.Length; ++i)
-            {
-                DomainObjectType.GetProperty(attributesOfDomainObject[i].Name).SetValue(dObject, parameters[i]);
-            }
-            return dObject;
+            return domainObject;
         }
 
         protected override string SqlGetAll()
@@ -183,8 +194,16 @@ namespace SqlReflect
             for(int i = 0; i < attributesOfDomainObject.Length; ++i)
             {
                 PropertyInfo pi = attributesOfDomainObject[i];
+                //if this property is not a primary key then add it to 'values'
                 if (!pi.IsDefined(typeof(PKAttribute), false)){
-                    values += "'" + attributesOfDomainObject[i].GetValue(target) + "' ,";
+
+                    Type t = attributesOfDomainObject[i].PropertyType;
+                    object value = attributesOfDomainObject[i].GetValue(target);
+                    //if (t.IsPrimitive || t.Equals(typeof(string)))
+                        values += "'" + value + "' ,";
+                    //else
+                        //if ToString is overriden this if else is not needed
+                    //    values += "'" + value + "' ,";
                 }
                 
             }

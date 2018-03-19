@@ -17,5 +17,9 @@ namespace SqlReflectTest.Model
        public string Country { get; set; }
        public string Phone { get; set; }
        public string Fax { get; set; }
+        public override string ToString()
+        {
+            return "" + SupplierID;
+        }
     }
 }

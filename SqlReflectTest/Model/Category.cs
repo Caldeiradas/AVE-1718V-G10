@@ -17,6 +17,10 @@ namespace SqlReflectTest.Model
             Description = description;
 
         }
+        public override string ToString()
+        {
+            return "" + CategoryID;
+        }
     }
 
     
