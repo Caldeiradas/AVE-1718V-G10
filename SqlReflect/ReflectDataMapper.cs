@@ -24,7 +24,7 @@ namespace SqlReflect
         string SQL_UPDATE;// =     "UPDATE {0} SET CategoryName={1}, Description={2} WHERE CategoryID = {0}";
 
         Type DomainObjectType;
-        Object DomainObject;
+        List<ReflectDataMapper> rdms = new List<ReflectDataMapper>();
 
         //Approach number 2:
         //Keep array of Properties
@@ -82,6 +82,7 @@ namespace SqlReflect
                 {
                     //public ReflectDataMapper(Type klass, string connStr)
                     ReflectDataMapper rdm = new ReflectDataMapper(propType, connStr);
+                    rdms.Add(rdm);
                     COLUMNS[i - 1] = property.Name+"ID";
                     COLUMNS_FLAT += property.Name+"ID" + ",";
 
@@ -120,7 +121,10 @@ namespace SqlReflect
             //object array that will contain the parameters that the constructor will receive
             //e.g if the object is a Category, parameters will be = {dr["CategoryID"], dr["CategoryName"], dr["Description"]}
             object[] parameters = new object[attributesOfDomainObject.Length];
+
             Object dObject = Activator.CreateInstance(DomainObjectType);
+
+
             for (int i = 0; i < parameters.Length; ++i)
             {
                 Type t = attributesOfDomainObject[i].PropertyType;
@@ -130,20 +134,31 @@ namespace SqlReflect
                 }
                 else
                 {
-                    // call Load to fill the new Type
-                    Object pObject = attributesOfDomainObject[i].GetValue();
 
-                    //ReflectDataMapper rdm = new ReflectDataMapper(t);
+                    //DomainObjectType = instancia do product
+                    //attributesOfDomainObject[i] = references a property of a domain type e.g Category
+                    //we need to get the value of this field
 
-                    parameters[i] = pObject;
+                    //object o = dr[attributesOfDomainObject[i].Name];
+                    //parameters[i] = attributesOfDomainObject[i].GetValue(DomainObjectType);
+                    
+                    //parameters[i] needs to be an instance of the referenced entity
+                    foreach(ReflectDataMapper rdm in rdms){
+                        if (rdm.DomainObjectType.Equals(t))
+                        {
+                            int ab = (int)dr[attributesOfDomainObject[i].Name + "ID"];
+                            Object a = rdm.GetById(ab);
+                            parameters[i] = a;
+                        }
 
+                    }
+                    
                     
 
                 }
 
             }
 
-            
             for (int i = 0; i < attributesOfDomainObject.Length; ++i)
             {
                 DomainObjectType.GetProperty(attributesOfDomainObject[i].Name).SetValue(dObject, parameters[i]);
