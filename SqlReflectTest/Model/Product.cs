@@ -9,7 +9,9 @@ namespace SqlReflectTest.Model
         [PK]
         public int ProductID { get; set; }
         public string ProductName { get; set; }
+        [FK(name: "SupplierID")]
         public Supplier Supplier { get; set; }
+        [FK(name: "CategoryID")]
         public Category Category { get; set; }
         public short UnitsInStock { get; set; }
         public short UnitsOnOrder { get; set; }

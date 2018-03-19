@@ -147,14 +147,16 @@ namespace SqlReflect
 
                     //generate the foreign_key name of this attribute
                     string fkName = "";
-                    if (propertyType.IsDefined(typeof(FKAttribute), false))
+                    PropertyInfo pi = attributesOfDomainObject[i];
+                    if (pi.IsDefined(typeof(FKAttribute), false))
                     {
-                        FKAttribute fk = (FKAttribute)propertyType.GetCustomAttribute(typeof(FKAttribute), false);
+                        FKAttribute fk = (FKAttribute)pi.GetCustomAttribute(typeof(FKAttribute), false);
                         fkName = fk.Name;
                     }
                     else
                     {
                         //throw something
+                        fkName = attributesOfDomainObject[i].Name + "ID";
                     }
                     
                     //get the correct instance by the ID
