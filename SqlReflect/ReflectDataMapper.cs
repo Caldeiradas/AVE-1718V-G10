@@ -23,7 +23,8 @@ namespace SqlReflect
         string SQL_DELETE;// =     "DELETE FROM {0} WHERE {1} = ";//{0} = TABLE_NAME //{1} = PRIMARY_KEY
         string SQL_UPDATE;// =     "UPDATE {0} SET CategoryName={1}, Description={2} WHERE CategoryID = {0}";
 
-        Type DomainObject;
+        Type DomainObjectType;
+        Object DomainObject;
 
         //Approach number 2:
         //Keep array of Properties
@@ -39,7 +40,7 @@ namespace SqlReflect
             //construction of the strings is done here
             //should it be done here or should it be done in the respective methods with an IF check to see if the string has been generated before?
             
-            DomainObject = klass;
+            DomainObjectType = klass;
             
             //Get the TableAttribute
             TableAttribute tb = (TableAttribute) klass.GetCustomAttribute(typeof(TableAttribute), false);
@@ -60,20 +61,35 @@ namespace SqlReflect
             int i = 1;
             foreach(PropertyInfo property in properties)
             {
-                if (property.IsDefined(typeof(PKAttribute), false)){
+                Type propType = property.PropertyType;
+                if (property.IsDefined(typeof(PKAttribute), false))
+                {
                     PRIMARY_KEY_NAME = property.Name;
                     primaryKeyAttribute = property;
                 }
-                else
+                else if(propType.IsPrimitive || propType.Equals(typeof(string)))
                 {
                     COLUMNS[i - 1] = property.Name;
                     //form COLUMN names
-                    COLUMNS_FLAT += property.Name+",";
+                    COLUMNS_FLAT += property.Name + ",";
 
-                    
+
                     SQL_UPDATE += property.Name + "={" + i + "},";
                     ++i;
                     //TODO the last one will have an extra ','
+                }
+                else
+                {
+                    //public ReflectDataMapper(Type klass, string connStr)
+                    ReflectDataMapper rdm = new ReflectDataMapper(propType, connStr);
+                    COLUMNS[i - 1] = property.Name+"ID";
+                    COLUMNS_FLAT += property.Name+"ID" + ",";
+
+
+                    SQL_UPDATE += property.Name + "={" + i + "},";
+                    ++i;
+                    //TODO the last one will have an extra ','
+
                 }
 
 
@@ -101,36 +117,38 @@ namespace SqlReflect
 
         protected override object Load(SqlDataReader dr)
         {
-
-
-            /*
-            object[] parameters = new object[COLUMNS.Length+1];
-            
-            parameters[0] = dr[PRIMARY_KEY_NAME];
-            for(int i = 1; i < parameters.Length; ++i)
-            {
-                parameters[i] = dr[COLUMNS[i-1]];
-            }
-            return Activator.CreateInstance(DomainObject, parameters);
-
-            //first parameter might not be the PRIMARY_KEY
-            */
-
             //object array that will contain the parameters that the constructor will receive
             //e.g if the object is a Category, parameters will be = {dr["CategoryID"], dr["CategoryName"], dr["Description"]}
             object[] parameters = new object[attributesOfDomainObject.Length];
+            Object dObject = Activator.CreateInstance(DomainObjectType);
+            for (int i = 0; i < parameters.Length; ++i)
+            {
+                Type t = attributesOfDomainObject[i].PropertyType;
+                if(t.IsPrimitive || t.Equals(typeof(string)))
+                {
+                    parameters[i] = dr[attributesOfDomainObject[i].Name];
+                }
+                else
+                {
+                    // call Load to fill the new Type
+                    Object pObject = attributesOfDomainObject[i].GetValue();
 
-            for(int i = 0; i < parameters.Length; ++i)
-                parameters[i] = dr[attributesOfDomainObject[i].Name];
+                    //ReflectDataMapper rdm = new ReflectDataMapper(t);
 
-            //Type dObject = (Type)FormatterServices.GetUninitializedObject(DomainObject); //does not call ctor
-            Object dObject = Activator.CreateInstance(DomainObject);
+                    parameters[i] = pObject;
+
+                    
+
+                }
+
+            }
+
+            
             for (int i = 0; i < attributesOfDomainObject.Length; ++i)
             {
-                DomainObject.GetProperty(attributesOfDomainObject[i].Name).SetValue(dObject, parameters[i]);
+                DomainObjectType.GetProperty(attributesOfDomainObject[i].Name).SetValue(dObject, parameters[i]);
             }
             return dObject;
-            //return Activator.CreateInstance(DomainObject, parameters);
         }
 
         protected override string SqlGetAll()
