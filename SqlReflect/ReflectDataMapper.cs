@@ -26,7 +26,7 @@ namespace SqlReflect
         Type DomainObjectType;
         PropertyInfo[] DomainObjectProperties;
         PropertyInfo PK_ProprietyInfo;
-        List<ReflectDataMapper> DataMappers = new List<ReflectDataMapper>();
+        Dictionary<Type,ReflectDataMapper> DataMappers = new Dictionary<Type,ReflectDataMapper>();
         
 
         public ReflectDataMapper(Type klass, string connStr) : base(connStr)
@@ -61,7 +61,7 @@ namespace SqlReflect
                 else
                 {
                     ReflectDataMapper rdm = new ReflectDataMapper(propType, connStr);
-                    DataMappers.Add(rdm);
+                    DataMappers.Add(propType, rdm);
                     string auxPKName = rdm.PK_ProprietyInfo.Name;
                     columnsSB.Append(auxPKName).Append(",");
                     updateSB.Append(auxPKName).Append("={").Append(++i).Append("},");
@@ -101,14 +101,8 @@ namespace SqlReflect
                 }
                 else
                 {
-                    foreach (ReflectDataMapper rdm in DataMappers)
-                    {
-                        if (propType.Equals(rdm.DomainObjectType))
-                        {
-                            value = rdm.GetById(dr[rdm.PK_ProprietyInfo.Name]);
-                            break;
-                        }
-                    }
+                    ReflectDataMapper rdm = DataMappers[propType];
+                    value = rdm.GetById(dr[rdm.PK_ProprietyInfo.Name]);
                 }
                 DomainObjectType.GetProperty(propName).SetValue(domainObject, value);
             }
