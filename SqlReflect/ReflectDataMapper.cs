@@ -61,19 +61,15 @@ namespace SqlReflect
                 {
                     PrimitiveColumn currentColumn = new PrimitiveColumn(property);
                     ColumnsOfDomain[i] = currentColumn;
-                    string name = currentColumn.GetName();
-                    columnsSB.Append(name).Append(",");
-                    updateSB.Append(name).Append("={").Append(++i).Append("},");
+                    ConstructSQLQuery(currentColumn.GetName(), ++i, columnsSB, updateSB);
+
                 }
                 else
                 {
                     ReflectDataMapper rdm = new ReflectDataMapper(propType, connStr);
                     NotPrimitiveColumn currentColumn = new NotPrimitiveColumn(property, rdm);
                     ColumnsOfDomain[i] = currentColumn;
-
-                    string name = currentColumn.GetFKName();
-                    columnsSB.Append(name).Append(",");
-                    updateSB.Append(name).Append("={").Append(++i).Append("},");
+                    ConstructSQLQuery(currentColumn.GetFKName(), ++i, columnsSB, updateSB);
                 }
             }
 
@@ -146,6 +142,12 @@ namespace SqlReflect
                 valuesToFormatStringWith[i] = "'"+ ColumnsOfDomain[i-1].GetPropertyValue(target)+"'";
             }
             return String.Format(SQL_UPDATE, valuesToFormatStringWith);
+        }
+
+        private static void ConstructSQLQuery(string name, int index, StringBuilder columnsSB, StringBuilder updateSB)
+        {
+            columnsSB.Append(name).Append(",");
+            updateSB.Append(name).Append("={").Append(index).Append("},");
         }
     }
 }
