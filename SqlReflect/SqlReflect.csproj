@@ -41,7 +41,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AbstractDataMapper.cs" />
+    <Compile Include="AbstractColumn.cs" />
     <Compile Include="IDataMapper.cs" />
+    <Compile Include="NotPrimitiveColumn.cs" />
+    <Compile Include="PrimitiveColumn.cs" />
     <Compile Include="ReflectDataMapper.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Attributes\PK.cs" />

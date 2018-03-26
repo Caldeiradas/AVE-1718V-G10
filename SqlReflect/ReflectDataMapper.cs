@@ -15,7 +15,7 @@ namespace SqlReflect
         //Information to connect to database 
         protected static string ConnStr;
 
-        //SQL querie strings
+        //SQL query strings
         readonly string SQL_GET_ALL;//E.g =    @"SELECT {0} FROM {1}"; //{0} = PRIMARY_KEY + COLUMNS //{1] = TABLE_NAME
         readonly string SQL_GET_BY_ID;//E.g  =  "{0} WHERE {1}=";//{0} = SQL_GET_ALL //{1} = PRIMARY_KEY
         readonly string SQL_INSERT;//E.g  =     "INSERT INTO {0} ({1}) OUTPUT INSERTED.{2} VALUES ";//{0} = TABLE_NAME //{1} = COLUMNS //{2} = PRIMARY_KEY
@@ -24,16 +24,15 @@ namespace SqlReflect
 
         //Reflection information
         Type DomainObjectType;
-        PropertyInfo[] DomainObjectProperties;
-        PropertyInfo PK_ProprietyInfo;
-        Dictionary<Type,ReflectDataMapper> DataMappers = new Dictionary<Type,ReflectDataMapper>();
         
+        AbstractColumn[] ColumnsOfDomain;
+        public AbstractColumn PrimaryKey;
 
         public ReflectDataMapper(Type klass, string connStr) : base(connStr)
         {
             DomainObjectType = klass;
             ConnStr = connStr;
-            DomainObjectProperties = klass.GetProperties();
+            PropertyInfo[] DomainObjectProperties = klass.GetProperties();
             
             //Get TableAtribute from the custom atributes
             TableAttribute tb = (TableAttribute)klass.GetCustomAttribute(typeof(TableAttribute), false);
@@ -43,28 +42,38 @@ namespace SqlReflect
             StringBuilder updateSB = new StringBuilder();
             String pkName = "";
             int i = 0;
+            //-1 because the primary key is not here
+            ColumnsOfDomain = new AbstractColumn[DomainObjectProperties.Length -1];
+            
 
-            //Iterate all proprieties to build the string for columns and for the update querie
+            //Iterate all proprieties to build the string for columns and for the update query
             foreach (PropertyInfo property in DomainObjectProperties)
             {
+                //AbstractColumn currentColumn; 
+
                 Type propType = property.PropertyType;
                 if (property.IsDefined(typeof(PKAttribute), false))
                 {
-                    PK_ProprietyInfo = property;
-                    pkName = property.Name;
+                    PrimaryKey = new PrimitiveColumn(property);
+                    pkName = PrimaryKey.GetName();
                 }
                 else if(propType.IsPrimitive || propType.Equals(typeof(string)))
                 {
-                    columnsSB.Append(property.Name).Append(",");
-                    updateSB.Append(property.Name).Append("={").Append(++i).Append("},");
+                    PrimitiveColumn currentColumn = new PrimitiveColumn(property);
+                    ColumnsOfDomain[i] = currentColumn;
+                    string name = currentColumn.GetName();
+                    columnsSB.Append(name).Append(",");
+                    updateSB.Append(name).Append("={").Append(++i).Append("},");
                 }
                 else
                 {
                     ReflectDataMapper rdm = new ReflectDataMapper(propType, connStr);
-                    DataMappers.Add(propType, rdm);
-                    string auxPKName = rdm.PK_ProprietyInfo.Name;
-                    columnsSB.Append(auxPKName).Append(",");
-                    updateSB.Append(auxPKName).Append("={").Append(++i).Append("},");
+                    NotPrimitiveColumn currentColumn = new NotPrimitiveColumn(property, rdm);
+                    ColumnsOfDomain[i] = currentColumn;
+
+                    string name = currentColumn.GetFKName();
+                    columnsSB.Append(name).Append(",");
+                    updateSB.Append(name).Append("={").Append(++i).Append("},");
                 }
             }
 
@@ -88,24 +97,15 @@ namespace SqlReflect
             Object domainObject = Activator.CreateInstance(DomainObjectType);
 
             //iterate through the type's parameters
-            foreach (PropertyInfo property in DomainObjectProperties)
+            foreach (AbstractColumn currentColumn in ColumnsOfDomain)
             {
-                Type propType = property.PropertyType;
-                string propName = property.Name;
-                object value = null;
-                if (propType.IsPrimitive || propType.Equals(typeof(string)))
-                {
-                    value = dr[propName];
-                    if (value is DBNull)
-                        value = null;
-                }
-                else
-                {
-                    ReflectDataMapper rdm = DataMappers[propType];
-                    value = rdm.GetById(dr[rdm.PK_ProprietyInfo.Name]);
-                }
-                DomainObjectType.GetProperty(propName).SetValue(domainObject, value);
+                object value = currentColumn.GetValue(dr);
+                DomainObjectType.
+                    GetProperty(currentColumn.GetName()).
+                    SetValue(domainObject, value);
             }
+            object pkValue = PrimaryKey.GetValue(dr);
+            DomainObjectType.GetProperty(PrimaryKey.GetName()).SetValue(domainObject, pkValue);
             return domainObject;
         }
 
@@ -123,14 +123,9 @@ namespace SqlReflect
         {
             StringBuilder valueSB = new StringBuilder();
             //iterate through target's Properties
-            for(int i = 0; i < DomainObjectProperties.Length; ++i)
-            {
-                PropertyInfo pi = DomainObjectProperties[i];
-                //if this property is not a primary key then add it to 'values'
-                if (!pi.IsDefined(typeof(PKAttribute), false)){
-                    valueSB.Append("'").Append(DomainObjectProperties[i].GetValue(target)).Append("' ,");
-                }  
-            }
+            foreach(AbstractColumn column in ColumnsOfDomain) 
+                valueSB.Append("'").Append(column.GetPropertyValue(target)).Append("' ,");
+            
             //remove last unnecessary comma ','
             if (valueSB[valueSB.Length - 1] == ',')
                     valueSB.Remove(valueSB.Length - 1, 1);
@@ -139,15 +134,16 @@ namespace SqlReflect
 
         protected override string SqlDelete(object target)
         {
-            return SQL_DELETE + PK_ProprietyInfo.GetValue(target);
+            return SQL_DELETE + PrimaryKey.GetPropertyValue(target);
         }
 
         protected override string SqlUpdate(object target)
         {
-            string[] valuesToFormatStringWith = new string[DomainObjectProperties.Length];
-            for(int i = 0; i < valuesToFormatStringWith.Length; ++i)
+            string[] valuesToFormatStringWith = new string[ColumnsOfDomain.Length+1];
+            valuesToFormatStringWith[0] = "" + PrimaryKey.GetPropertyValue(target);
+            for(int i = 1; i < valuesToFormatStringWith.Length; ++i)
             {
-                valuesToFormatStringWith[i] = "'"+ DomainObjectProperties[i].GetValue(target)+"'";
+                valuesToFormatStringWith[i] = "'"+ ColumnsOfDomain[i-1].GetPropertyValue(target)+"'";
             }
             return String.Format(SQL_UPDATE, valuesToFormatStringWith);
         }
